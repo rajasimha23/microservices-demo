@@ -90,7 +90,7 @@ jobs:
 
   promote_to_production:
     runs-on: ubuntu-latest
-    needs: [promote_to_staging, verify_deployment_staging]
+    needs: verify_deployment_staging
     if: success() && github.ref == 'refs/heads/staging'
     steps:
       - name: Checkout production branch
