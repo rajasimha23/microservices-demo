@@ -1,0 +1,123 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - staging
+      - production
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          region: eu-west-2
+
+      - name: Build and push Docker image
+        id: build-image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${{ github.ref_name }}-${{ github.sha }}
+
+      - name: Static Code Analysis
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          projectBaseDir: .
+
+      - name: Scan Docker image with Docker Scout
+        run: |
+          docker scout cves ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY }}:${{ github.ref_name }}-${{ github.sha }}
+
+  update_helm_chart:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v2
+
+      - name: update helm chart with new image tag
+        run: |
+        sed -i 's/tag:.*/tag: ${{github.ref_name}}-${{github.sha}}/' helm-chart/values-${{github.ref_name}}.yaml
+
+      - name: commit and push changes
+        run: |
+          git config --global user.name 'rajasimha23'
+          git config --global user.email 'githubactions@gmail.com'
+          git commit -am "updated image tag to ${{github.ref_name}}-${{github.sha}}"
+          git push origin ${{github.ref_name}}
+
+  verify_deployment_staging:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/staging'
+    steps:
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v1
+        with:
+          version: 'v1.21.0'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n staging -l app=microservices-demo -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' | grep -q "True"
+
+  notify_failure:
+    runs-on: ubuntu-latest
+    needs: [build, update_helm_chart, verify_deployment_staging]
+    if: failure()
+    steps:
+      - name: Send failure notification
+        run: echo "Build, update, or deployment verification failed. Notification sent."
+
+  promote_to_production:
+    runs-on: ubuntu-latest
+    needs: [promote_to_staging, verify_deployment_staging]
+    if: success() && github.ref == 'refs/heads/staging'
+    steps:
+      - name: Checkout production branch
+        run: |
+          git checkout production
+          git merge staging
+          git push origin production
+
+  verify_deployment_production:
+    runs-on: ubuntu-latest
+    needs: promote_to_production
+    if: github.ref == 'refs/heads/production'
+    steps:
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v1
+        with:
+          version: 'v1.21.0'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n production -l app=microservices-demo -o jsonpath='{.items[*].status.conditions[?(@.type=="Ready")].status}' | grep -q "True"
+
+  
