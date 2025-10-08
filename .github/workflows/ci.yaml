@@ -51,7 +51,7 @@ jobs:
 
       - name: update helm chart with new image tag
         run: |
-        sed -i 's/tag:.*/tag: ${{github.ref_name}}-${{github.sha}}/' helm-chart/values-${{github.ref_name}}.yaml
+          sed -i 's/tag:.*/tag: ${{github.ref_name}}-${{github.sha}}/' helm-chart/values-${{github.ref_name}}.yaml
 
       - name: commit and push changes
         run: |
