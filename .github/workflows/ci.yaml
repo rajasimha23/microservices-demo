@@ -27,6 +27,7 @@ jobs:
         run: |
           git config --global user.name 'rajasimha23'
           git config --global user.email 'githubactions@gmail.com'
+          git add .
           git commit -am "updated image tag to ${{github.ref_name}}-${{github.sha}}"
           git push origin ${{github.ref_name}}
 
