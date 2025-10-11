@@ -7,3 +7,8 @@ variable "clusterName" {
     type = string
     description = "name of the cluster"
 }
+
+variable "NodegroupName" {
+    type = string
+    description = "name of the Node Group"
+}
