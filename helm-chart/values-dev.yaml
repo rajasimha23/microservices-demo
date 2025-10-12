@@ -19,7 +19,7 @@
 images:
   repository: us-central1-docker.pkg.dev/google-samples/microservices-demo
   # Overrides the image tag whose default is the chart appVersion.
-  tag: staging-d6098ded089aaca7dfee991f57ab4e1e5cd74cf0
+  tag: dev-f2074a7e18248d2eaae813e7da743762c7cf9f52
 
 serviceAccounts:
   # Specifies whether service accounts should be created.
