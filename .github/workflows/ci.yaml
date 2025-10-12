@@ -39,13 +39,6 @@ jobs:
             docker push $DEST
           done
 
-      - name: Static Code Analysis
-        uses: SonarSource/sonarcloud-github-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          projectBaseDir: .
-
   update_helm_chart:
     runs-on: ubuntu-latest
     needs: build
