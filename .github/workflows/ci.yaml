@@ -28,21 +28,18 @@ jobs:
 
       - name: Push images to ECR and Scan
         env:
-          GCR_REPO: us-central1-docker.pkg.dev/google-samples/microservices-demo
           ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
           ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
           TAG: ${{ github.ref_name }}-${{ github.sha }}
         run: |
           for i in adservice; do
-            SRC="$GCR_REPO/$i"
+            SRC="./src/${i}"
             DEST="$ECR_REGISTRY/$ECR_REPOSITORY/$i:$TAG"
-            echo "Pushing $SRC → $DEST"
-            docker pull $SRC
-            docker tag $SRC $DEST
+            docker build -t $DEST $SRC
             docker push $DEST
             docker scout cves $DEST
           done
-      
+          
       - name: Static Code Analysis
         uses: SonarSource/sonarcloud-github-action@master
         env:
@@ -78,5 +75,4 @@ jobs:
     steps:
       - name: Send failure notification
         run: echo "Build, update, or deployment verification failed. Notification sent."
-  
   
