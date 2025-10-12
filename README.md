@@ -6,11 +6,6 @@
 **Online Boutique** is a cloud-first microservices demo application.  The application is a
 web-based e-commerce app where users can browse items, add them to the cart, and purchase them.
 
-Google uses this application to demonstrate how developers can modernize enterprise applications using Google Cloud products, including: [Google Kubernetes Engine (GKE)](https://cloud.google.com/kubernetes-engine), [Cloud Service Mesh (CSM)](https://cloud.google.com/service-mesh), [gRPC](https://grpc.io/), [Cloud Operations](https://cloud.google.com/products/operations), [Spanner](https://cloud.google.com/spanner), [Memorystore](https://cloud.google.com/memorystore), [AlloyDB](https://cloud.google.com/alloydb), and [Gemini](https://ai.google.dev/). This application works on any Kubernetes cluster.
-
-If you’re using this demo, please **★Star** this repository to show your interest!
-
-**Note to Googlers:** Please fill out the form at [go/microservices-demo](http://go/microservices-demo).
 
 ## Architecture
 
@@ -42,48 +37,108 @@ Find **Protocol Buffers Descriptions** at the [`./protos` directory](/protos).
 | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | [![Screenshot of store homepage](/docs/img/online-boutique-frontend-1.png)](/docs/img/online-boutique-frontend-1.png) | [![Screenshot of checkout screen](/docs/img/online-boutique-frontend-2.png)](/docs/img/online-boutique-frontend-2.png) |
 
-## Quickstart (GKE)
+Ensure you have the following requirements:
 
-1. Ensure you have the following requirements:
-   - [Google Cloud project](https://cloud.google.com/resource-manager/docs/creating-managing-projects#creating_a_project).
-   - Shell environment with `gcloud`, `git`, and `kubectl`.
+Install kubectl - [here](<https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/>).
 
-2. Clone the latest major version.
+Install AWS CLI - [here](<https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html#getting-started-install-instructions>).
 
-   ```sh
-   git clone --depth 1 --branch v0 https://github.com/GoogleCloudPlatform/microservices-demo.git
-   cd microservices-demo/
-   ```
 
-   The `--depth 1` argument skips downloading git history.
+# Project Setup
+### 1. Clone the Repository
 
-3. Set the Google Cloud project and region and ensure the Google Kubernetes Engine API is enabled.
+```bash
+git clone https://github.com/rajasimha23/microservices-demo.git
+```
+---
 
-   ```sh
-   export PROJECT_ID=<PROJECT_ID>
-   export REGION=us-central1
-   gcloud services enable container.googleapis.com \
-     --project=${PROJECT_ID}
-   ```
+### 2. Provision Resources Using Terraform
 
-   Substitute `<PROJECT_ID>` with the ID of your Google Cloud project.
+```bash
+cd terraform/modules/dev
+terraform init
+terraform plan
+terraform apply --auto-approve
+```
+[Here's the list of all resources that might be created ](<https://registry.terraform.io/modules/terraform-aws-modules/eks/aws/latest?tab=resources>)
 
-4. Create a GKE cluster and get the credentials for it.
+---
+### 3. Connect kubectl to the cluster
 
-   ```sh
-   gcloud container clusters create-auto online-boutique \
-     --project=${PROJECT_ID} --region=${REGION}
-   ```
+```bash
+aws configure
+aws eks update-kubeconfig --name <cluster-name> --region <region>
+```
 
-   Creating the cluster may take a few minutes.
+**Verify Connection**
+```bash
+kubectl get nodes
+```
 
-5. Deploy Online Boutique to the cluster.
+---
 
-   ```sh
-   kubectl apply -f ./release/kubernetes-manifests.yaml
-   ```
+### 4. Set Up Argo CD on the Cluster
 
-6. Wait for the pods to be ready.
+```bash
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+```
+
+
+
+##### Change the Argo CD Service Type to LoadBalancer
+```bash
+kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "LoadBalancer"}}'
+```
+
+Wait for your cloud provider to assign an external IP:
+
+```bash
+kubectl get svc -n argocd -o wide
+```
+
+Then, open the **external IP** in your browser to access the Argo CD login page.  
+Refer to the official docs: [Argo CD Access Guide](https://argo-cd.readthedocs.io/en/stable/getting_started/#3-access-the-argo-cd-api-server)
+
+**Login to Argo CD**
+
+**Username:** `admin`  
+**Password:** Retrieve it from the secret:
+
+```bash
+kubectl get secret -n argocd argocd-initial-admin-secret -o=jsonpath='{.data.password}' | base64 -d
+```
+
+---
+
+### 5. Create Applications on Argo CD
+
+You can create applications manually via the UI or by applying a manifest. 
+ 
+JSON configuration:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: microservices-demo-dev
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/rajasimha23/microservices-demo.git'
+    targetRevision: dev
+    path: helm-chart
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+```
+
+Wait for the all pods to be running and healthy
 
    ```sh
    kubectl get pods
@@ -106,62 +161,75 @@ Find **Protocol Buffers Descriptions** at the [`./protos` directory](/protos).
    redis-cart-5f59546cdd-5jnqf              1/1     Running   0          2m58s
    shippingservice-6ccc89f8fd-v686r         1/1     Running   0          2m58s
    ```
-
-7. Access the web frontend in a browser using the frontend's external IP.
+Access the web frontend in a browser using the frontend's external IP.
 
    ```sh
-   kubectl get service frontend-external | awk '{print $4}'
+   kubectl get service frontend-6b8d69b9fb-wjqdg  | awk '{print $4}'
    ```
 
    Visit `http://EXTERNAL_IP` in a web browser to access your instance of Online Boutique.
 
-8. Congrats! You've deployed the default Online Boutique. To deploy a different variation of Online Boutique (e.g., with Google Cloud Operations tracing, Istio, etc.), see [Deploy Online Boutique variations with Kustomize](#deploy-online-boutique-variations-with-kustomize).
+---
 
-9. Once you are done with it, delete the GKE cluster.
+### 6. Monitoring: Deploying Prometheus and Grafana
 
-   ```sh
-   gcloud container clusters delete online-boutique \
-     --project=${PROJECT_ID} --region=${REGION}
-   ```
+Create 2 more applications to deploy **Prometheus** and **Grafana** as Argo CD applications on the cluster
 
-   Deleting the cluster may take a few minutes.
+- For **Prometheus:** use the repo [here](<https://github.com/prometheus-operator/prometheus-operator>)  
+- For **Grafana:** use the repo [here](<https://github.com/grafana/helm-charts>)
 
-## Additional deployment options
+###  Access the Grafana Dashboard
 
-- **Terraform**: [See these instructions](/terraform) to learn how to deploy Online Boutique using [Terraform](https://www.terraform.io/intro).
-- **Istio / Cloud Service Mesh**: [See these instructions](/kustomize/components/service-mesh-istio/README.md) to deploy Online Boutique alongside an Istio-backed service mesh.
-- **Non-GKE clusters (Minikube, Kind, etc)**: See the [Development guide](/docs/development-guide.md) to learn how you can deploy Online Boutique on non-GKE clusters.
-- **AI assistant using Gemini**: [See these instructions](/kustomize/components/shopping-assistant/README.md) to deploy a Gemini-powered AI assistant that suggests products to purchase based on an image.
-- **And more**: The [`/kustomize` directory](/kustomize) contains instructions for customizing the deployment of Online Boutique with other variations.
+#### **Step 1: Check Grafana Service**
+List all services in the Grafana namespace (for example `monitoring` or `grafana`):
 
-## Documentation
+```bash
+kubectl get svc -n grafana
+```
 
-- [Development](/docs/development-guide.md) to learn how to run and develop this app locally.
+Look for the **grafana service** - it’s usually named `grafana` or `kube-prometheus-stack-grafana`.
 
-## Demos featuring Online Boutique
 
-- [Platform Engineering in action: Deploy the Online Boutique sample apps with Score and Humanitec](https://medium.com/p/d99101001e69)
-- [The new Kubernetes Gateway API with Istio and Anthos Service Mesh (ASM)](https://medium.com/p/9d64c7009cd)
-- [Use Azure Redis Cache with the Online Boutique sample on AKS](https://medium.com/p/981bd98b53f8)
-- [Sail Sharp, 8 tips to optimize and secure your .NET containers for Kubernetes](https://medium.com/p/c68ba253844a)
-- [Deploy multi-region application with Anthos and Google cloud Spanner](https://medium.com/google-cloud/a2ea3493ed0)
-- [Use Google Cloud Memorystore (Redis) with the Online Boutique sample on GKE](https://medium.com/p/82f7879a900d)
-- [Use Helm to simplify the deployment of Online Boutique, with a Service Mesh, GitOps, and more!](https://medium.com/p/246119e46d53)
-- [How to reduce microservices complexity with Apigee and Anthos Service Mesh](https://cloud.google.com/blog/products/application-modernization/api-management-and-service-mesh-go-together)
-- [gRPC health probes with Kubernetes 1.24+](https://medium.com/p/b5bd26253a4c)
-- [Use Google Cloud Spanner with the Online Boutique sample](https://medium.com/p/f7248e077339)
-- [Seamlessly encrypt traffic from any apps in your Mesh to Memorystore (redis)](https://medium.com/google-cloud/64b71969318d)
-- [Strengthen your app's security with Cloud Service Mesh and Anthos Config Management](https://cloud.google.com/service-mesh/docs/strengthen-app-security)
-- [From edge to mesh: Exposing service mesh applications through GKE Ingress](https://cloud.google.com/architecture/exposing-service-mesh-apps-through-gke-ingress)
-- [Take the first step toward SRE with Cloud Operations Sandbox](https://cloud.google.com/blog/products/operations/on-the-road-to-sre-with-cloud-operations-sandbox)
-- [Deploying the Online Boutique sample application on Cloud Service Mesh](https://cloud.google.com/service-mesh/docs/onlineboutique-install-kpt)
-- [Anthos Service Mesh Workshop: Lab Guide](https://codelabs.developers.google.com/codelabs/anthos-service-mesh-workshop)
-- [KubeCon EU 2019 - Reinventing Networking: A Deep Dive into Istio's Multicluster Gateways - Steve Dake, Independent](https://youtu.be/-t2BfT59zJA?t=982)
-- Google Cloud Next'18 SF
-  - [Day 1 Keynote](https://youtu.be/vJ9OaAqfxo4?t=2416) showing GKE On-Prem
-  - [Day 3 Keynote](https://youtu.be/JQPOPV_VH5w?t=815) showing Stackdriver
-    APM (Tracing, Code Search, Profiler, Google Cloud Build)
-  - [Introduction to Service Management with Istio](https://www.youtube.com/watch?v=wCJrdKdD6UM&feature=youtu.be&t=586)
-- [Google Cloud Next'18 London – Keynote](https://youtu.be/nIq2pkNcfEI?t=3071)
-  showing Stackdriver Incident Response Management
-- [Microservices demo showcasing Go Micro](https://github.com/go-micro/demo)
+
+#### **Step 2: Expose Grafana**
+
+If the Grafana service type is **ClusterIP**, you can either:
+- Port-forward it to your local machine, **or**
+- Change it to a **LoadBalancer** type to access it externally.
+
+#### Option 1: Port-forward (Local Access)
+```bash
+kubectl port-forward svc/grafana -n grafana 3000:80
+```
+Then open your browser and go to:  
+👉 [http://localhost:3000](http://localhost:3000)
+
+#### Option 2: LoadBalancer (External Access)
+```bash
+kubectl patch svc grafana -n grafana -p '{"spec": {"type": "LoadBalancer"}}'
+```
+Wait for the external IP:
+```bash
+kubectl get svc -n grafana -o wide
+```
+Open the external IP in your browser.
+
+
+#### **Step 3: Get Grafana Admin Credentials and Login**
+
+The admin credentials are stored in a secret.  
+Use this command to retrieve them:
+
+```bash
+kubectl get secret -n grafana grafana -o jsonpath="{.data.admin-user}" | base64 -d; echo
+kubectl get secret -n grafana grafana -o jsonpath="{.data.admin-password}" | base64 -d; echo
+```
+Login using username and password
+
+---
+
+#### 10. Apply Alert rules
+```
+kubectl apply -f alert-rules.yaml
+kubectl apply -f config.yaml
+```
