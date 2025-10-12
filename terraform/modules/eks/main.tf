@@ -10,11 +10,11 @@ module "myvpc" {
   map_public_ip_on_launch = true
 
   tags = {
-    "kubernetes.io/cluster/eks-staging-cluster" = "shared"
+    "kubernetes.io/cluster/eks-dev-cluster" = "shared"
   }
 
   public_subnet_tags = {
-     "kubernetes.io/cluster/eks-staging-cluster" = "shared"
+     "kubernetes.io/cluster/eks-dev-cluster" = "shared"
      "kubernetes.io/role/elb" = 1
   }
 
@@ -24,7 +24,7 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 21.0"
 
-  name               = "eks-staging-cluster"
+  name               = "eks-dev-cluster"
   kubernetes_version = "1.33"
 
   endpoint_public_access = true   # Optional
@@ -50,10 +50,10 @@ module "eks" {
   # EKS Managed Node Group(s)
   eks_managed_node_groups = {
     
-    staging_nodegroup = {
+    dev_nodegroup = {
 
-      instance_types = ["t3.small"]
-
+      instance_types = ["t3.medium"]
+ 
       min_size     = 2
       max_size     = 3
       desired_size = 2
@@ -61,6 +61,6 @@ module "eks" {
   }
 
   tags = {
-    Environment = "staging"
+    Environment = "dev"
   }
 }
