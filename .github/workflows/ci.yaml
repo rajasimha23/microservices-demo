@@ -37,7 +37,6 @@ jobs:
             DEST="$ECR_REGISTRY/$ECR_REPOSITORY:$TAG"
             docker build -t $DEST $SRC
             docker push $DEST
-            docker scout cves $DEST
           done
 
       - name: Static Code Analysis
