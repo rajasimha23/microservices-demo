@@ -1,151 +1,66 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 6.0"
-    }
-  }
-}
+module "myvpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "6.4.0"
+  
+  name = "my-vpc"
 
-# Configure the AWS Provider
-provider "aws" {
-  region = "eu-west-2"
-}
-
-
-resource "aws_vpc" "main" {
-  cidr_block       = "10.0.0.0/16"
-  instance_tenancy = "default"
+  cidr = "10.0.0.0/16"
+  azs  = ["eu-west-2a", "eu-west-2b", "eu-west-2c"]
+  public_subnets = ["10.0.1.0/24","10.0.2.0/24","10.0.3.0/24"]
+  map_public_ip_on_launch = true
 
   tags = {
-    Name = var.tag
+    "kubernetes.io/cluster/eks-staging-cluster" = "shared"
   }
+
+  public_subnet_tags = {
+     "kubernetes.io/cluster/eks-staging-cluster" = "shared"
+     "kubernetes.io/role/elb" = 1
+  }
+
 }
 
-resource "aws_subnet" "az1" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.1.0/24"
-  availability_zone = "eu-west-2a"
+module "eks" {
+  source  = "terraform-aws-modules/eks/aws"
+  version = "~> 21.0"
 
-  tags = {
-    Name = var.tag
-  }
-}
+  name               = "eks-staging-cluster"
+  kubernetes_version = "1.33"
 
-resource "aws_subnet" "az2" {
-  vpc_id     = aws_vpc.main.id
-  cidr_block = "10.0.2.0/24"
-  availability_zone = "eu-west-2b"
-
-  tags = {
-    Name = var.tag
-  }
-}
-
-
-resource "aws_eks_cluster" "eks-demo-cluster" {
-  name = var.clusterName
-
-  access_config {
-    authentication_mode = "API"
-  }
-
-  role_arn = aws_iam_role.cluster.arn
-  version  = "1.31"
-
-  vpc_config {
-    subnet_ids = [
-      aws_subnet.az1.id,
-      aws_subnet.az2.id,
-    ]
-  }
+  endpoint_public_access = true   # Optional
 
   
-  depends_on = [
-    aws_iam_role_policy_attachment.cluster_AmazonEKSClusterPolicy,
-  ]
-}
+  enable_cluster_creator_admin_permissions = true    # Optional: Adds the current caller identity as an administrator via cluster access entry
 
-resource "aws_iam_role" "cluster" {
-  name = "eks-cluster-example"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = [
-          "sts:AssumeRole",
-          "sts:TagSession"
-        ]
-        Effect = "Allow"
-        Principal = {
-          Service = "eks.amazonaws.com"
-        }
-      },
-    ]
-  })
-}
+  vpc_id                   = module.myvpc.vpc_id
+  control_plane_subnet_ids = module.myvpc.public_subnets
+  subnet_ids               = module.myvpc.public_subnets
 
-resource "aws_iam_role_policy_attachment" "cluster_AmazonEKSClusterPolicy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-  role       = aws_iam_role.cluster.name
-}
+  addons = {
+    coredns                = {}
+    eks-pod-identity-agent = {
+      before_compute = true
+    }
+    kube-proxy             = {}
+    vpc-cni                = {
+      before_compute = true
+    }
+  }
+  
+  # EKS Managed Node Group(s)
+  eks_managed_node_groups = {
+    
+    staging_nodegroup = {
 
-resource "aws_eks_node_group" "eks-nodegroup" {
-  cluster_name    = aws_eks_cluster.eks-demo-cluster.name
-  node_group_name = var.NodegroupName
-  node_role_arn   = aws_iam_role.nodegroup-iam-role.arn
-  subnet_ids      = [
-    aws_subnet.az1.id,
-    aws_subnet.az2.id,
-  ]
-  instance_types = ["t3.small",]
+      instance_types = ["t3.small"]
 
-  scaling_config {
-    desired_size = 1
-    max_size     = 2
-    min_size     = 1
+      min_size     = 2
+      max_size     = 3
+      desired_size = 2
+    }
   }
 
-  update_config {
-    max_unavailable = 1
+  tags = {
+    Environment = "staging"
   }
-
-  # Ensure that IAM Role permissions are created before and deleted after EKS Node Group handling.
-  # Otherwise, EKS will not be able to properly delete EC2 Instances and Elastic Network Interfaces.
-  depends_on = [
-    aws_iam_role_policy_attachment.eks-AmazonEKSWorkerNodePolicy,
-    aws_iam_role_policy_attachment.eks-AmazonEKS_CNI_Policy,
-    aws_iam_role_policy_attachment.eks-AmazonEC2ContainerRegistryReadOnly,
-  ]
-}
-
-# IAM role for Node Group
-resource "aws_iam_role" "nodegroup-iam-role" {
-  name = "eks-nodegroup-role"
-
-  assume_role_policy = jsonencode({
-    Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = {
-        Service = "ec2.amazonaws.com"
-      }
-    }]
-    Version = "2012-10-17"
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "eks-AmazonEKSWorkerNodePolicy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-  role       = aws_iam_role.nodegroup-iam-role.name
-}
-
-resource "aws_iam_role_policy_attachment" "eks-AmazonEKS_CNI_Policy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
-  role       = aws_iam_role.nodegroup-iam-role.name
-}
-
-resource "aws_iam_role_policy_attachment" "eks-AmazonEC2ContainerRegistryReadOnly" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-  role       = aws_iam_role.nodegroup-iam-role.name
 }

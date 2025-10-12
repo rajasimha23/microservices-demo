@@ -1,4 +1,8 @@
-output "subnet_ids_AZs"{
-    description = "these are subnet ids of the AZs EKS is going to use"
-    value = aws_eks_cluster.eks-demo-cluster.vpc_config[0].subnet_ids
+output "public_subnets_cidr_blocks" {
+    value = module.myvpc.public_subnets_cidr_blocks
+}
+
+
+output "public_subnets_ids" {
+    value = module.myvpc.public_subnets
 }
