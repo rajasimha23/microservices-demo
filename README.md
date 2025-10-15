@@ -233,3 +233,23 @@ Login using username and password
 kubectl apply -f alert-rules.yaml
 kubectl apply -f config.yaml
 ```
+
+## Clean up
+
+To avoid incurring charges to your AWS account for the resources used in this sample application, delete the individual resources.
+
+To remove the individual resources created for by Terraform:
+
+1. Navigate to the `terraform/` directory.
+   ```
+   cd microservices-demo/terraform
+   ```
+
+
+2. Run the following command:
+
+   ```bash
+   terraform destroy
+   ```
+
+   1. If there is a confirmation prompt, type `yes` and hit Enter.
