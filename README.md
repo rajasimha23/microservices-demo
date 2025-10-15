@@ -37,6 +37,10 @@ Find **Protocol Buffers Descriptions** at the [`./protos` directory](/protos).
 | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | [![Screenshot of store homepage](/docs/img/online-boutique-frontend-1.png)](/docs/img/online-boutique-frontend-1.png) | [![Screenshot of checkout screen](/docs/img/online-boutique-frontend-2.png)](/docs/img/online-boutique-frontend-2.png) |
 
+
+
+# Project Setup
+
 Ensure you have the following requirements:
 
 Install kubectl - [here](<https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/>).
@@ -44,7 +48,6 @@ Install kubectl - [here](<https://kubernetes.io/docs/tasks/tools/install-kubectl
 Install AWS CLI - [here](<https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html#getting-started-install-instructions>).
 
 
-# Project Setup
 ### 1. Clone the Repository
 
 ```bash
