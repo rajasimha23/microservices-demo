@@ -37,6 +37,10 @@ Find **Protocol Buffers Descriptions** at the [`./protos` directory](/protos).
 | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | [![Screenshot of store homepage](/docs/img/online-boutique-frontend-1.png)](/docs/img/online-boutique-frontend-1.png) | [![Screenshot of checkout screen](/docs/img/online-boutique-frontend-2.png)](/docs/img/online-boutique-frontend-2.png) |
 
+
+
+# Project Setup
+
 Ensure you have the following requirements:
 
 Install kubectl - [here](<https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/>).
@@ -44,7 +48,6 @@ Install kubectl - [here](<https://kubernetes.io/docs/tasks/tools/install-kubectl
 Install AWS CLI - [here](<https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html#getting-started-install-instructions>).
 
 
-# Project Setup
 ### 1. Clone the Repository
 
 ```bash
@@ -233,6 +236,7 @@ Login using username and password
 kubectl apply -f alert-rules.yaml
 kubectl apply -f config.yaml
 ```
+<<<<<<< HEAD
 
 ## Clean up
 
@@ -253,3 +257,5 @@ To remove the individual resources created for by Terraform:
    ```
 
    1. If there is a confirmation prompt, type `yes` and hit Enter.
+=======
+>>>>>>> 94cc9f55895138681aa8e029d2a34a5b64405766
