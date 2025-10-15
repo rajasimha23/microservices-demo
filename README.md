@@ -229,14 +229,13 @@ kubectl get secret -n grafana grafana -o jsonpath="{.data.admin-password}" | bas
 ```
 Login using username and password
 
----
 
+---
 #### 10. Apply Alert rules
 ```
 kubectl apply -f alert-rules.yaml
 kubectl apply -f config.yaml
 ```
-<<<<<<< HEAD
 
 ## Clean up
 
@@ -256,6 +255,4 @@ To remove the individual resources created for by Terraform:
    terraform destroy
    ```
 
-   1. If there is a confirmation prompt, type `yes` and hit Enter.
-=======
->>>>>>> 94cc9f55895138681aa8e029d2a34a5b64405766
+   If there is a confirmation prompt, type `yes` and hit Enter.
