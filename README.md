@@ -243,9 +243,9 @@ To avoid incurring charges to your AWS account for the resources used in this sa
 
 To remove the individual resources created for by Terraform:
 
-1. Navigate to the `terraform/` directory.
+1. Navigate to the `terraform/modules/dev` directory.
    ```
-   cd microservices-demo/terraform
+   cd microservices-demo/terraform/modules/dev
    ```
 
 
